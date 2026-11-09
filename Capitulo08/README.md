@@ -1,6 +1,3 @@
----LAB_START---
-LAB_ID: 08-00-01
----MARKDOWN---
 # Práctica: Implementación de controles de codificación segura en Java SE 11
 
 ## Metadatos
@@ -44,7 +41,7 @@ El participante revisará una aplicación con vulnerabilidades comunes y aplicar
 | Maven | 3.9.8 | https://maven.apache.org/download.cgi |
 | PostgreSQL | 16.3 | https://www.postgresql.org/download/ |
 | PostgreSQL JDBC Driver | 42.7.3 | https://jdbc.postgresql.org/download/ |
-| Bouncy Castle Provider | 1.78.1 | https://www.bouncycastle.org/latest_releases.html |
+| Bouncy Castle Provider (`bcprov-jdk18on`) | 1.78.1 | https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk18on/1.78.1/ |
 | SonarLint (IntelliJ plugin) | 10.4.0.79986 | https://plugins.jetbrains.com/plugin/7973-sonarlint |
 | IntelliJ IDEA CE | 2024.1.4 | https://www.jetbrains.com/idea/download/ |
 
@@ -155,7 +152,7 @@ mkdir -p src/test/java/com/securelab
 <!-- Bouncy Castle Provider -->
 <dependency>
     <groupId>org.bouncycastle</groupId>
-    <artifactId>bcprov-jdk15on</artifactId>
+    <artifactId>bcprov-jdk18on</artifactId>
     <version>1.78.1</version>
 </dependency>
 ```

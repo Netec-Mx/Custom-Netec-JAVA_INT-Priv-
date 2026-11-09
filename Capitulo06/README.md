@@ -1088,4 +1088,4 @@ En este laboratorio se cubrieron los seis temas del Capítulo 6:
 - [Documentación oficial: ForkJoinPool (Java SE 11)](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/concurrent/ForkJoinPool.html)
 - [Documentación oficial: RecursiveTask (Java SE 11)](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/concurrent/RecursiveTask.html)
 - [Baeldung: Guide to Java Parallel Streams](https://www.baeldung.com/java-when-to-use-parallel-stream)
-- [Java SE 11 Programmer II Study Guide — Boyarsky & Selikoff, McGraw-Hill, 2020](https://www.oreilly.com/library/view/ocp-oracle-certified/9781260135190/)
+- [OCP Oracle Certified Professional Java SE 11 Developer Complete Study Guide — Boyarsky & Selikoff, Sybex, 2020](https://www.oreilly.com/library/view/ocp-oracle-certified/9781119619130/)

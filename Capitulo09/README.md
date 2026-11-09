@@ -19,7 +19,7 @@ Este laboratorio consolida conocimientos de los laboratorios anteriores: program
 
 - [ ] Construir y configurar una instancia de `HttpClient` con versión HTTP/2, timeout de conexión y política de redirección, y enviar solicitudes CRUD síncronas procesando `HttpResponse` con `BodyHandlers`.
 - [ ] Refactorizar solicitudes síncronas a asíncronas con `sendAsync()`, encadenando `thenApply()`, `thenAccept()` y `exceptionally()`, y ejecutar múltiples solicitudes en paralelo con `CompletableFuture.allOf()`.
-- [ ] Configurar un `SSLContext` con el KeyStore PKCS12 del Lab 08-00-01 para establecer comunicación HTTPS con WireMock en el puerto 8443.
+- [ ] Configurar un `SSLContext` con un KeyStore PKCS12 generado con `keytool` (técnica del Lab 08-00-01) para establecer comunicación HTTPS con WireMock en el puerto 8443.
 - [ ] Implementar `WebSocket.Listener` para recibir mensajes en tiempo real y construir un mecanismo de reconexión automática con retroceso exponencial usando `ScheduledExecutorService`.
 - [ ] Integrar el cliente HTTP y WebSocket como módulo JPMS `com.httpclient.lab` declarando `requires java.net.http` en `module-info.java`.
 
@@ -42,7 +42,8 @@ Este laboratorio consolida conocimientos de los laboratorios anteriores: program
 | Apache Maven 3.9.8 | Instalado y en `PATH` — [https://maven.apache.org/download.cgi](https://maven.apache.org/download.cgi) |
 | IntelliJ IDEA Community 2024.1.4 | [https://www.jetbrains.com/idea/download/](https://www.jetbrains.com/idea/download/) |
 | WireMock Standalone 3.6.0 | `~/labs/tools/wiremock-standalone-3.6.0.jar` — [https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.6.0/wiremock-standalone-3.6.0.jar](https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.6.0/wiremock-standalone-3.6.0.jar) |
-| Archivo `keystore.p12` del Lab 08-00-01 | `~/cursos/java-se11-labs/src/main/resources/keystore.p12` (contraseña: `changeit`) |
+| Servidor WebSocket del curso | `~/labs/tools/NotificationServer.java` — [recursos/NotificationServer.java](recursos/NotificationServer.java) (se ejecuta con `java NotificationServer.java`) |
+| KeyStore HTTPS para `localhost` | `~/cursos/java-se11-labs/src/main/resources/localhost-https.p12` (contraseña: `changeit`); se genera en el Paso 6 con `keytool` |
 | Directorio de trabajo global | `~/cursos/java-se11-labs` (Linux/macOS) o `C:\cursos\java-se11-labs` (Windows) |
 
 ## Entorno de Laboratorio
@@ -75,7 +76,7 @@ Este laboratorio crea un subpaquete nuevo `com.httpclient.lab` dentro del proyec
 │       └── app/
 │           └── HttpClientDemo.java
 └── src/main/resources/
-    └── keystore.p12
+    └── localhost-https.p12
 ```
 
 ### Software requerido
@@ -84,7 +85,8 @@ Este laboratorio crea un subpaquete nuevo `com.httpclient.lab` dentro del proyec
 |---|---|---|
 | JDK Eclipse Temurin | 11.0.23+9 | Compilación y ejecución |
 | Apache Maven | 3.9.8 | Gestión de dependencias y compilación |
-| WireMock Standalone | 3.6.0 | Servidor mock REST y WebSocket |
+| WireMock Standalone | 3.6.0 | Servidor mock de la API REST (HTTP y HTTPS) |
+| NotificationServer (recurso del curso) | Java 11, sin dependencias | Servidor WebSocket de notificaciones en el puerto 8090 |
 | maven-compiler-plugin | 3.13.0 | Compilación con `--release 11` |
 
 ## Instrucciones Paso a Paso
@@ -685,28 +687,33 @@ java -cp target/classes com.httpclient.lab.app.HttpClientDemo
 
 ### Paso 6: Configurar WireMock con HTTPS y preparar el SSLContext
 
-**Objetivo:** Levantar una segunda instancia de WireMock con HTTPS en el puerto 8443 usando el KeyStore PKCS12 del Lab 08-00-01, y crear un cliente HTTP seguro.
+**Objetivo:** Levantar una segunda instancia de WireMock con HTTPS en el puerto 8443 usando un KeyStore PKCS12 (como el que generaste en el Lab 08-00-01), y crear un cliente HTTP seguro.
 
-1. Primero, verifica que el archivo `keystore.p12` existe:
+1. Genera un KeyStore PKCS12 autofirmado para el servidor HTTPS en `localhost`:
 
 ```bash
-ls -la ~/cursos/java-se11-labs/src/main/resources/keystore.p12
+keytool -genkeypair -alias localhost -keyalg RSA -keysize 2048 -validity 365 \
+  -storetype PKCS12 -keystore ~/cursos/java-se11-labs/src/main/resources/localhost-https.p12 \
+  -storepass changeit -keypass changeit \
+  -dname "CN=localhost, OU=Lab, O=Curso, L=Ciudad, ST=Estado, C=MX" \
+  -ext "SAN=dns:localhost,ip:127.0.0.1"
 ```
 
-> **Nota:** Si no dispones del `keystore.p12` del Lab 08-00-01, genera uno autofirmado con:
-> ```bash
-> keytool -genkeypair -alias wiremock -keyalg RSA -keysize 2048 \
->   -storetype PKCS12 -keystore ~/cursos/java-se11-labs/src/main/resources/keystore.p12 \
->   -storepass changeit -validity 365 \
->   -dname "CN=localhost, OU=Lab, O=Curso, L=Ciudad, ST=Estado, C=MX"
-> ```
+Verifica que el archivo existe y que el certificado incluye `localhost`:
+
+```bash
+keytool -list -v -keystore ~/cursos/java-se11-labs/src/main/resources/localhost-https.p12 \
+  -storepass changeit | grep -E "Owner|Propietario|DNSName"
+```
+
+> **Importante:** no reutilices el `keystore.p12` de la Práctica 8. Su certificado tiene `CN=SecureLab` y otra contraseña; el `HttpClient` de Java verifica que el nombre del certificado coincida con el host (`localhost`) y la conexión fallaría con `No name matching localhost found`. Por eso este KeyStore incluye la extensión `SAN=dns:localhost,ip:127.0.0.1`.
 
 2. Abre una **tercera terminal** e inicia WireMock con HTTPS en el puerto 8443:
 
 ```bash
 java -jar ~/labs/tools/wiremock-standalone-3.6.0.jar \
   --https-port 8443 \
-  --https-keystore ~/cursos/java-se11-labs/src/main/resources/keystore.p12 \
+  --https-keystore ~/cursos/java-se11-labs/src/main/resources/localhost-https.p12 \
   --keystore-password changeit \
   --keystore-type PKCS12 \
   --root-dir ~/cursos/java-se11-labs/stubs \
@@ -796,7 +803,7 @@ public class SecureHttpClient {
         System.out.println("\n=== Ejercicio 4: Comunicación HTTPS segura ===\n");
 
         try {
-            String keystorePath = "src/main/resources/keystore.p12";
+            String keystorePath = "src/main/resources/localhost-https.p12";
             com.httpclient.lab.client.SecureHttpClient secureClient =
                     new com.httpclient.lab.client.SecureHttpClient(keystorePath, "changeit");
 
@@ -838,7 +845,23 @@ java -ea -cp target/classes com.httpclient.lab.app.HttpClientDemo
 
 ### Paso 7: Implementar el WebSocket.Listener para recibir notificaciones
 
-**Objetivo:** Crear la clase `NotificationListener` que implemente `WebSocket.Listener` con los métodos `onOpen()`, `onText()`, `onError()` y `onClose()`, y conectarla al endpoint WebSocket de WireMock.
+**Objetivo:** Crear la clase `NotificationListener` que implemente `WebSocket.Listener` con los métodos `onOpen()`, `onText()`, `onError()` y `onClose()`, y conectarla al servidor WebSocket de notificaciones del curso.
+
+> WireMock solo simula la API REST; no ofrece un servidor WebSocket. Para esta parte se usa el servidor de notificaciones incluido en el repositorio: [`recursos/NotificationServer.java`](recursos/NotificationServer.java). Es un único archivo Java sin dependencias que implementa el protocolo WebSocket, envía una notificación cada 3 segundos y responde con un eco a cada mensaje.
+
+0. Descarga [`NotificationServer.java`](recursos/NotificationServer.java) en `~/labs/tools/`. Abre una **nueva terminal** (déjala abierta durante el resto de la práctica) e inicia el servidor con el lanzamiento de archivo fuente de Java 11:
+
+```bash
+cd ~/labs/tools
+java NotificationServer.java
+```
+
+**Salida esperada:**
+
+```
+[Servidor] WebSocket escuchando en ws://localhost:8090/ws/notifications
+[Servidor] Presiona Ctrl+C para detener.
+```
 
 1. Crea el archivo `src/main/java/com/httpclient/lab/websocket/NotificationListener.java`:
 
@@ -903,7 +926,7 @@ public class NotificationListener implements WebSocket.Listener {
             java.net.http.WebSocket ws = java.net.http.HttpClient.newHttpClient()
                     .newWebSocketBuilder()
                     .buildAsync(
-                            URI.create("ws://localhost:8080/ws/notifications"),
+                            URI.create("ws://localhost:8090/ws/notifications"),
                             listener)
                     .join();
 
@@ -922,13 +945,12 @@ public class NotificationListener implements WebSocket.Listener {
 
             System.out.println("\n>>> Ejercicio 5 completado: WebSocket funcional.");
         } catch (Exception e) {
-            System.err.println("[WS] Nota: WireMock standalone puede no soportar WebSocket.");
-            System.err.println("[WS] Error: " + e.getMessage());
-            System.out.println("[WS] Continuando con el resto del laboratorio...");
+            System.err.println("[WS] No fue posible conectar: " + e.getMessage());
+            System.err.println("[WS] Verifica que NotificationServer esté en ejecución en el puerto 8090.");
         }
 ```
 
-> **Importante:** WireMock 3.6.0 standalone tiene soporte limitado para WebSocket. Si la conexión falla, el bloque `catch` captura el error y el laboratorio continúa. El instructor puede proporcionar un servidor WebSocket alternativo con un simple `ServerSocket` o usar la clase del Paso 8 para simular la reconexión.
+> **Importante:** el servidor de notificaciones debe estar en ejecución (paso 0). Si la conexión falla, revisa que la terminal del servidor siga abierta y que el puerto 8090 no esté ocupado; puedes iniciarlo en otro puerto con `java NotificationServer.java 9090` y ajustar la URI.
 
 3. Compila y ejecuta:
 
@@ -937,28 +959,26 @@ mvn compile -q
 java -ea -cp target/classes com.httpclient.lab.app.HttpClientDemo
 ```
 
-**Salida esperada (si WebSocket está disponible):**
+**Salida esperada:**
 
 ```
 === Ejercicio 5: Conexión WebSocket ===
 
 [WS] Conexión abierta. Solicitando primer mensaje...
 [WS] WebSocket conectado. Esperando mensajes (10 seg)...
-[WS] Mensaje recibido: ...
+[WS] Mensaje recibido: {"tipo":"bienvenida","mensaje":"Conectado al servicio de notificaciones"}
+[WS] Mensaje recibido: {"tipo":"eco","mensaje":"ping desde cliente"}
+[WS] Mensaje recibido: {"tipo":"notificacion","id":1,"mensaje":"Pedido 1001 actualizado"}
+[WS] Mensaje recibido: {"tipo":"notificacion","id":2,"mensaje":"Pedido 1002 actualizado"}
 [WS] Cierre enviado.
+[WS] Conexión cerrada. Código: 1000, Razón: Fin de la demostración
 
 >>> Ejercicio 5 completado: WebSocket funcional.
 ```
 
-**Salida esperada (si WebSocket no está disponible en WireMock):**
+En la terminal del servidor se observa `Cliente conectado`, `Recibido: ping desde cliente` y `El cliente cerró la conexión.`. Los números de las notificaciones dependen del momento en que se conecte el cliente.
 
-```
-[WS] Nota: WireMock standalone puede no soportar WebSocket.
-[WS] Error: ...
-[WS] Continuando con el resto del laboratorio...
-```
-
-**Verificación:** La clase `NotificationListener` compila sin errores e implementa correctamente los cuatro métodos de `WebSocket.Listener`. Si la conexión se establece, los mensajes se imprimen por consola.
+**Verificación:** El cliente recibe el mensaje de bienvenida, el eco de su mensaje y al menos dos notificaciones, y cierra la conexión con el código 1000.
 
 ---
 
@@ -1082,14 +1102,14 @@ public class WebSocketConnectionManager {
         com.httpclient.lab.websocket.WebSocketConnectionManager manager =
                 new com.httpclient.lab.websocket.WebSocketConnectionManager(
                         java.net.http.HttpClient.newHttpClient(),
-                        "ws://localhost:8080/ws/notifications");
+                        "ws://localhost:8090/ws/notifications");
 
-        // Intentar conectar (si WireMock no soporta WS, se activará la reconexión)
+        // Conectar al servidor de notificaciones
         manager.connect();
 
-        // Esperar 15 segundos para observar intentos de reconexión
-        System.out.println("[RECONNECT] Observando comportamiento durante 15 segundos...");
-        Thread.sleep(15_000);
+        // Esperar 30 segundos: durante este tiempo se detiene y se reinicia el servidor
+        System.out.println("[RECONNECT] Observando comportamiento durante 30 segundos...");
+        Thread.sleep(30_000);
 
         manager.disconnect();
         System.out.println("\n>>> Ejercicio 6 completado: mecanismo de reconexión implementado.");
@@ -1102,23 +1122,37 @@ mvn compile -q
 java -cp target/classes com.httpclient.lab.app.HttpClientDemo
 ```
 
-**Salida esperada (cuando WebSocket no está disponible — demuestra la reconexión):**
+4. Para provocar la reconexión, mientras el programa espera los 30 segundos:
+   - Cuando aparezca `[RECONNECT] Conexión establecida exitosamente.`, ir a la terminal del servidor y detenerlo con **Ctrl+C**.
+   - Observar en la terminal del cliente los intentos de reconexión con retrasos crecientes.
+   - Antes del cuarto intento, volver a iniciar el servidor con `java NotificationServer.java`.
+
+**Salida esperada:**
 
 ```
 === Ejercicio 6: Reconexión con retroceso exponencial ===
 
 [RECONNECT] Intento 1 de 5
-[RECONNECT] Fallo en conexión: ...
+[RECONNECT] Observando comportamiento durante 30 segundos...
+[RECONNECT] Conexión establecida exitosamente.
+[WS] Mensaje recibido: {"tipo":"bienvenida",...}
+[WS] Error: ...                                   <- servidor detenido con Ctrl+C
+[RECONNECT] Conexión perdida: ...
+[RECONNECT] Reintentando en 1 segundos...
+[RECONNECT] Intento 1 de 5
+[RECONNECT] Fallo en conexión: java.net.ConnectException
 [RECONNECT] Reintentando en 2 segundos...
 [RECONNECT] Intento 2 de 5
-[RECONNECT] Fallo en conexión: ...
+[RECONNECT] Fallo en conexión: java.net.ConnectException
 [RECONNECT] Reintentando en 4 segundos...
-[RECONNECT] Intento 3 de 5
-...
-[RECONNECT] Observando comportamiento durante 15 segundos...
+[RECONNECT] Intento 3 de 5                        <- servidor iniciado de nuevo
+[RECONNECT] Conexión establecida exitosamente.
+[WS] Mensaje recibido: {"tipo":"bienvenida",...}
 
 >>> Ejercicio 6 completado: mecanismo de reconexión implementado.
 ```
+
+El mensaje exacto del error depende del sistema operativo. Si no se reinicia el servidor, el gestor se detiene al llegar al máximo de 5 intentos.
 
 **Verificación:** El mecanismo de reconexión muestra intentos con delays crecientes (2s, 4s, 8s...) y se detiene al alcanzar el máximo de 5 intentos o al llamar `disconnect()`.
 
@@ -1198,7 +1232,7 @@ java -cp target/classes com.httpclient.lab.app.HttpClientDemo
 
 **Objetivo:** Ejecutar el flujo completo que integra todos los ejercicios: CRUD síncrono, solicitudes asíncronas en paralelo, HTTPS seguro, WebSocket y reconexión, todo desde el módulo JPMS.
 
-1. Asegúrate de que ambas instancias de WireMock están activas (HTTP en 8080, HTTPS en 8443).
+1. Asegúrate de que ambas instancias de WireMock están activas (HTTP en 8080, HTTPS en 8443) y de que `NotificationServer` está en ejecución (puerto 8090).
 
 2. Revisa que `HttpClientDemo.java` contiene todos los bloques de los ejercicios 1 al 6. El archivo completo final debe tener esta estructura:
 
@@ -1257,7 +1291,7 @@ public class HttpClientDemo {
         System.out.println("=== Ejercicio 4: HTTPS seguro ===\n");
         try {
             SecureHttpClient secureClient =
-                    new SecureHttpClient("src/main/resources/keystore.p12", "changeit");
+                    new SecureHttpClient("src/main/resources/localhost-https.p12", "changeit");
             HttpResponse<String> secResp = secureClient.getProductsSecure();
             System.out.println("[HTTPS] Código: " + secResp.statusCode());
             System.out.println(">>> HTTPS exitoso.\n");
@@ -1271,7 +1305,7 @@ public class HttpClientDemo {
             NotificationListener listener = new NotificationListener();
             WebSocket ws = HttpClient.newHttpClient()
                     .newWebSocketBuilder()
-                    .buildAsync(URI.create("ws://localhost:8080/ws/notifications"), listener)
+                    .buildAsync(URI.create("ws://localhost:8090/ws/notifications"), listener)
                     .join();
             ws.sendText("ping", true);
             Thread.sleep(5_000);
@@ -1362,7 +1396,7 @@ java -ea -cp target/classes com.httpclient.lab.app.HttpClientDemo
 | 2 | GET retorna código 200, POST retorna 201, PUT retorna 200, DELETE retorna 204 | Salida de consola con los cuatro códigos |
 | 3 | Solicitudes asíncronas ejecutadas en hilos `Worker-N` distintos | Salida de consola mostrando nombres de hilos diferentes |
 | 4 | `CompletableFuture.allOf()` espera las tres solicitudes | Tiempo asíncrono menor o comparable al síncrono |
-| 5 | HTTPS funcional con SSLContext cargado desde `keystore.p12` | Código 200 en la solicitud HTTPS al puerto 8443 |
+| 5 | HTTPS funcional con SSLContext cargado desde `localhost-https.p12` | Código 200 en la solicitud HTTPS al puerto 8443 |
 | 6 | `NotificationListener` implementa los 4 métodos de `WebSocket.Listener` | Código fuente con `onOpen`, `onText`, `onError`, `onClose` |
 | 7 | Retroceso exponencial con delays 2s, 4s, 8s... hasta máximo 60s | Salida de consola con timestamps de reconexión |
 | 8 | `module-info.java` declara `requires java.net.http` | Salida de `jar --describe-module` |
@@ -1385,7 +1419,7 @@ Modifica temporalmente la contraseña en la invocación del `SecureHttpClient`:
 
 ```java
 // Cambiar "changeit" por "wrongpassword"
-SecureHttpClient secureClient = new SecureHttpClient("src/main/resources/keystore.p12", "wrongpassword");
+SecureHttpClient secureClient = new SecureHttpClient("src/main/resources/localhost-https.p12", "wrongpassword");
 ```
 
 **Resultado esperado:** Se lanza `java.io.IOException: keystore password was incorrect` capturada por el bloque `try-catch`, y la aplicación continúa ejecutando los demás ejercicios.
@@ -1460,7 +1494,7 @@ jar --describe-module --file ~/.m2/repository/org/postgresql/postgresql/42.7.3/p
 
 ## Limpieza
 
-1. Detén ambas instancias de WireMock (Ctrl+C en las terminales dedicadas).
+1. Detén ambas instancias de WireMock y el servidor `NotificationServer` (Ctrl+C en las terminales dedicadas).
 
 2. Elimina el JAR temporal de verificación modular:
 

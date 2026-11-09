@@ -1223,6 +1223,18 @@ git commit -m "Lab 03-00-01: Procesamiento funcional con expresiones Lambda
 
 ---
 
+## Validación y Pruebas
+
+Ejecuta las siguientes pruebas para comprobar que la práctica cumple su objetivo:
+
+| Prueba | Comando o acción | Resultado esperado |
+|--------|------------------|--------------------|
+| Compilación | `mvn compile -q` | `BUILD SUCCESS` sin errores |
+| Equivalencia anónimas vs lambdas | `java -cp target/classes com.curso.modulo3.LambdaRefactorDemo` | Los escenarios A, B y C muestran el mismo resultado con clase anónima y con lambda |
+| Interfaces de `java.util.function` | `java -cp target/classes com.curso.modulo3.LambdaDemo` | Se ejecutan `Predicate`, `Function`, `Consumer`, `Supplier`, `UnaryOperator` y `BiFunction`, las composiciones `and`/`or`/`negate` y `andThen`/`compose`, y las 4 formas de referencia a método |
+| Contrato funcional | Agregar temporalmente un segundo método abstracto a `Transformer` y compilar | El compilador rechaza la interfaz por la anotación `@FunctionalInterface`; después, retirar el método |
+| Rendimiento | Ejecutar el benchmark del Paso 8 | Ambas versiones procesan los 10 000 elementos y devuelven la misma cantidad de resultados |
+
 ## Resumen de Archivos Creados/Modificados
 
 | Archivo                        | Acción     | Propósito                                           |
@@ -1258,3 +1270,19 @@ git commit -m "Lab 03-00-01: Procesamiento funcional con expresiones Lambda
 | Las 4 formas de referencia a método se demuestran | 10 | Estático, instancia concreta, instancia arbitraria y constructor |
 | Benchmark ejecuta sin errores sobre 10,000 elementos | 10 | Ambas versiones producen la misma cantidad de resultados |
 | **Total** | **100** | |
+
+## Limpieza
+
+1. Conserva el código del paquete `com.curso.modulo3`: el Capítulo 4 reutiliza el dominio `Order` y las interfaces funcionales.
+2. Elimina los artefactos compilados si necesitas liberar espacio:
+
+```bash
+mvn clean -q
+```
+
+## Resumen
+
+- Se refactorizaron implementaciones basadas en clases anónimas a expresiones Lambda, incluida una interfaz funcional genérica propia (`Transformer<T, R>`).
+- Se aplicaron las interfaces funcionales de `java.util.function` (`Predicate`, `Function`, `Consumer`, `Supplier`, `UnaryOperator` y `BiFunction`) y la composición de funciones para filtrar, transformar y procesar datos.
+- Se usaron las cuatro formas de referencia a métodos.
+- Se comparó la legibilidad y el rendimiento de las clases anónimas frente a las lambdas.
