@@ -60,6 +60,7 @@ Cada uno de estos laboratorios está diseñado para ofrecerte una experiencia pr
   - **Descripción**: consumo síncrono y asíncrono de una API REST con `java.net.http`, HTTPS, comunicación WebSocket con reconexión automática e integración como módulo.
   - ⏱️ **Duración estimada**: 120 min.
 
+
 ---
 
 ## 📬 **Contacto y más información**
