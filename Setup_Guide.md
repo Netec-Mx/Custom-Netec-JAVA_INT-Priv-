@@ -17,7 +17,7 @@
 | Repositorio de laboratorios | [https://github.com/Netec-Mx/Custom-Netec-JAVA_INT-Priv-](https://github.com/Netec-Mx/Custom-Netec-JAVA_INT-Priv-) |
 | Rama y revisión analizada | `main` (commit `da121a7`) con los cambios de la rama `changes_course` |
 | Alcance revisado | 9 capítulos, 9 prácticas (`Capitulo01` a `Capitulo09`), `README.md` y recurso `Capitulo09/recursos/NotificationServer.java` |
-| Modalidad del entorno | Local (estación del participante) se usará Windows 10+ como sistema operativo default para este curso|
+| Modalidad del entorno | Local o Azure (estación del participante) se usará Windows 10+ como sistema operativo default para este curso|
 
 # Objetivo
 
